@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { DashboardHeader } from "@/components/dashboard/dashboard-header";
+import { DashboardFooter } from "@/components/dashboard/dashboard-footer";
 import { SocialLinksManager } from "@/components/dashboard/social-links/social-links-manager";
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
@@ -32,6 +34,7 @@ export default async function SocialLinksPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <DashboardHeader profile={profile} />
       <main className="max-w-4xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         <div className="mb-6 text-center">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">

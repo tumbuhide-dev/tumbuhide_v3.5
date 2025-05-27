@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ProfileEditor } from "@/components/dashboard/profile-editor";
+import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -33,6 +34,7 @@ export default async function ProfileEditPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <DashboardHeader profile={profile} />
       <main className="max-w-4xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         <div className="mb-6 text-center">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
