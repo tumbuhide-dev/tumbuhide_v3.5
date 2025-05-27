@@ -8,13 +8,25 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, Settings, LogOut, User, Crown } from "lucide-react";
+import {
+  ExternalLink,
+  Settings,
+  LogOut,
+  User,
+  Crown,
+  BarChart3,
+  Link as LinkIcon,
+  ChevronDown,
+} from "lucide-react";
 import { ModeToggle } from "@/components/mode-toggle";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { generateAvatarFromUsername } from "@/lib/avatar-generator";
+import { useToast } from "@/components/ui/use-toast";
 
 interface DashboardHeaderProps {
   profile: {
@@ -27,7 +39,9 @@ interface DashboardHeaderProps {
 
 export function DashboardHeader({ profile }: DashboardHeaderProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const supabase = createClientComponentClient();
+  const { toast } = useToast();
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -46,19 +60,73 @@ export function DashboardHeader({ profile }: DashboardHeaderProps) {
   const avatarUrl =
     profile.avatar_url || generateAvatarFromUsername(profile.username);
 
+  const isAtDashboard = pathname === "/dashboard";
+
   return (
     <header className="bg-white dark:bg-gray-800 shadow-sm border-b">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link href="/dashboard" className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 bg-gradient-to-r from-purple-600 to-yellow-500 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">T</span>
             </div>
             <span className="text-xl font-bold text-gray-900 dark:text-white">
               Tumbuhide.id
             </span>
           </Link>
+
+          {/* Navigation */}
+          <nav className="hidden md:flex items-center space-x-4">
+            {!isAtDashboard && (
+              <Button variant="ghost" asChild>
+                <Link href="/dashboard">Dashboard</Link>
+              </Button>
+            )}
+
+            {/* Analytics Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="flex items-center gap-1">
+                  <BarChart3 className="w-4 h-4 mr-1" />
+                  Analytics
+                  <ChevronDown className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem asChild>
+                  <Link href="/dashboard/analytics">Profile Analytics</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/dashboard/social/analytics" className="flex items-center justify-between">
+                    Social Analytics
+                    {profile.plan !== "pro" && (
+                      <Crown className="w-4 h-4 text-yellow-400" />
+                    )}
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Links Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="flex items-center gap-1">
+                  <LinkIcon className="w-4 h-4 mr-1" />
+                  Links
+                  <ChevronDown className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem asChild>
+                  <Link href="/dashboard/social-links">Social Links</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/dashboard/custom-links">Custom Links</Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </nav>
 
           {/* Right side */}
           <div className="flex items-center space-x-4">

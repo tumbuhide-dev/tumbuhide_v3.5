@@ -134,54 +134,54 @@ export function QuickActions({ profile }: QuickActionsProps) {
   return (
     <div className="space-y-6">
       {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Aksi Cepat</CardTitle>
+      <Card className="overflow-hidden border-0 shadow-lg bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
+        <CardHeader className="border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-purple-500/5 to-yellow-500/5">
+          <CardTitle className="text-xl font-semibold bg-gradient-to-r from-purple-600 to-yellow-500 bg-clip-text text-transparent">Aksi Cepat</CardTitle>
           <CardDescription>Kelola profil dan konten Anda</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Button
               variant="outline"
               asChild
-              className="h-auto p-4 flex-col gap-2"
+              className="group h-auto p-6 flex flex-col gap-3 hover:bg-gradient-to-br hover:from-purple-50 hover:to-yellow-50 dark:hover:from-purple-900/20 dark:hover:to-yellow-900/20 border-2 hover:border-purple-200 dark:hover:border-purple-700 transition-all duration-300"
             >
-              <Link href="/dashboard/profile">
-                <Users className="w-6 h-6" />
-                <span className="text-sm">Edit Profil</span>
+              <Link href="/dashboard/profile" className="space-y-2">
+                <Users className="w-6 h-6 mx-auto text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform duration-300" />
+                <span className="text-sm font-medium block text-center">Edit Profil</span>
               </Link>
             </Button>
 
             <Button
               variant="outline"
               asChild
-              className="h-auto p-4 flex-col gap-2"
+              className="group h-auto p-6 flex flex-col gap-3 hover:bg-gradient-to-br hover:from-yellow-50 hover:to-purple-50 dark:hover:from-yellow-900/20 dark:hover:to-purple-900/20 border-2 hover:border-yellow-200 dark:hover:border-yellow-700 transition-all duration-300"
             >
-              <Link href="/dashboard/social-links">
-                <LinkIcon className="w-6 h-6" />
-                <span className="text-sm">Social Links</span>
+              <Link href="/dashboard/social-links" className="space-y-2">
+                <LinkIcon className="w-6 h-6 mx-auto text-yellow-600 dark:text-yellow-400 group-hover:scale-110 transition-transform duration-300" />
+                <span className="text-sm font-medium block text-center">Social Links</span>
               </Link>
             </Button>
 
             <Button
               variant="outline"
               asChild
-              className="h-auto p-4 flex-col gap-2"
+              className="group h-auto p-6 flex flex-col gap-3 hover:bg-gradient-to-br hover:from-purple-50 hover:to-yellow-50 dark:hover:from-purple-900/20 dark:hover:to-yellow-900/20 border-2 hover:border-purple-200 dark:hover:border-purple-700 transition-all duration-300"
             >
-              <Link href="/dashboard/custom-links">
-                <Sparkles className="w-6 h-6" />
-                <span className="text-sm">Custom Links</span>
+              <Link href="/dashboard/custom-links" className="space-y-2">
+                <Sparkles className="w-6 h-6 mx-auto text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform duration-300" />
+                <span className="text-sm font-medium block text-center">Custom Links</span>
               </Link>
             </Button>
 
             <Button
               variant="outline"
               asChild
-              className="h-auto p-4 flex-col gap-2"
+              className="group h-auto p-6 flex flex-col gap-3 hover:bg-gradient-to-br hover:from-yellow-50 hover:to-purple-50 dark:hover:from-yellow-900/20 dark:hover:to-purple-900/20 border-2 hover:border-yellow-200 dark:hover:border-yellow-700 transition-all duration-300"
             >
-              <Link href="/dashboard/analytics">
-                <BarChart3 className="w-6 h-6" />
-                <span className="text-sm">Analytics</span>
+              <Link href="/dashboard/analytics" className="space-y-2">
+                <BarChart3 className="w-6 h-6 mx-auto text-yellow-600 dark:text-yellow-400 group-hover:scale-110 transition-transform duration-300" />
+                <span className="text-sm font-medium block text-center">Analytics</span>
               </Link>
             </Button>
 
@@ -189,28 +189,30 @@ export function QuickActions({ profile }: QuickActionsProps) {
               <Button
                 variant="outline"
                 asChild
-                className="h-auto p-4 flex-col gap-2 md:col-span-2"
+                className="group h-auto p-6 flex flex-col gap-3 hover:bg-gradient-to-br hover:from-purple-50 hover:to-yellow-50 dark:hover:from-purple-900/20 dark:hover:to-yellow-900/20 border-2 hover:border-purple-200 dark:hover:border-purple-700 transition-all duration-300 md:col-span-2"
               >
-                <Link href="/dashboard/showcase">
-                  <Video className="w-6 h-6" />
-                  <span className="text-sm">Video Showcase</span>
+                <Link href="/dashboard/showcase" className="space-y-2">
+                  <Video className="w-6 h-6 mx-auto text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform duration-300" />
+                  <span className="text-sm font-medium block text-center">Video Showcase</span>
                 </Link>
               </Button>
             )}
           </div>
         </CardContent>
       </Card>
-      <Card className="shadow-lg border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-        <CardHeader className="bg-gray-100 dark:bg-gray-900 px-6 py-4">
+      <Card className="shadow-lg border-0 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-purple-500/10 to-yellow-500/10 border-b border-gray-100 dark:border-gray-700">
           <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
+            <div className="space-y-1">
+              <CardTitle className="flex items-center gap-2 text-lg">
                 {profile.plan === "pro" && (
-                  <Crown className="w-6 h-6 text-yellow-400" />
+                  <Crown className="w-6 h-6 text-yellow-400 animate-pulse" />
                 )}
-                Paket: {profile.plan === "pro" ? "Creator Pro" : "Basic"}
+                <span className="bg-gradient-to-r from-purple-600 to-yellow-500 bg-clip-text text-transparent">
+                  Paket: {profile.plan === "pro" ? "Creator Pro" : "Basic"}
+                </span>
               </CardTitle>
-              <CardDescription className="text-gray-600 dark:text-gray-400 mt-1">
+              <CardDescription className="text-gray-600 dark:text-gray-400">
                 {profile.plan === "pro"
                   ? "Anda memiliki akses ke semua fitur premium"
                   : "Upgrade untuk mendapatkan fitur lebih lengkap"}
@@ -218,7 +220,7 @@ export function QuickActions({ profile }: QuickActionsProps) {
             </div>
             <Badge
               variant={profile.plan === "pro" ? "default" : "secondary"}
-              className="text-sm font-medium px-3 py-1 rounded-full shadow-md"
+              className="text-sm font-medium px-4 py-1 rounded-full shadow-md bg-gradient-to-r from-purple-500 to-yellow-500 text-white border-0"
             >
               {profile.plan === "pro" ? "Premium" : "Gratis"}
             </Badge>

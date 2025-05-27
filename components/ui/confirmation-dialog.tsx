@@ -1,61 +1,76 @@
 "use client";
 
-import type * as React from "react";
+import React from "react";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Trash2 } from "lucide-react";
 
 interface ConfirmationDialogProps {
+  children: React.ReactNode;
   title: string;
   description: string;
   onConfirm: () => void;
-  children?: React.ReactNode;
-  variant?: "destructive" | "default";
+  confirmText?: string;
+  cancelText?: string;
+  variant?: "default" | "destructive";
 }
 
 export function ConfirmationDialog({
+  children,
   title,
   description,
   onConfirm,
-  children,
-  variant = "destructive",
+  confirmText = "Konfirmasi",
+  cancelText = "Batal",
+  variant = "default",
 }: ConfirmationDialogProps) {
+  const [open, setOpen] = React.useState(false);
+
+  const handleConfirm = () => {
+    onConfirm();
+    setOpen(false);
+  };
+
   return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>
-        {children || (
-          <Button variant="outline" size="sm">
-            <Trash2 className="w-4 h-4" />
-          </Button>
-        )}
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription>{description}</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Batal</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={onConfirm}
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>{children}</DialogTrigger>
+      <DialogContent className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg mx-4 sm:mx-auto">
+        <DialogHeader className="text-center">
+          <DialogTitle
             className={
-              variant === "destructive" ? "bg-red-600 hover:bg-red-700" : ""
+              variant === "destructive" ? "text-red-900 dark:text-red-100" : ""
             }
           >
-            {variant === "destructive" ? "Hapus" : "Konfirmasi"}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+            {title}
+          </DialogTitle>
+          <DialogDescription className="text-center">
+            {description}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="flex flex-col gap-2 sm:flex-col">
+          <Button
+            onClick={handleConfirm}
+            variant={variant}
+            className="w-full order-1"
+          >
+            {confirmText}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setOpen(false)}
+            className="w-full order-2"
+          >
+            {cancelText}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

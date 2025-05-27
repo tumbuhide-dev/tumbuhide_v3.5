@@ -1,5 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
+import React from "react";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,7 +21,6 @@ import {
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Trash2,
   Plus,
@@ -27,28 +28,51 @@ import {
   ArrowLeft,
   Crown,
   BarChart3,
+  Edit,
+  Instagram,
+  Music,
+  Facebook,
+  Twitter,
+  Youtube,
+  MessageSquare,
+  Info,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
+  TrendingUp,
 } from "lucide-react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { SECURITY } from "@/lib/constants";
 import { validateURL, sanitizeInput } from "@/lib/security";
-import { InstagramAnalyticsCard } from "./instagram-analytics-card";
-import { TikTokAnalyticsCard } from "./tiktok-analytics-card";
-import { getPlatformIcon, getPlatformColor } from "@/lib/platform-icons";
 import Link from "next/link";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 interface SocialLink {
   id: string;
   platform: string;
   username: string;
   url: string;
-  followers_count: number;
-  following_count: number;
-  media_count: number;
-  engagement_rate: number;
-  is_verified: boolean;
   display_order: number;
   updated_at: string;
+}
+
+interface AnalyticsData {
+  saved_username: string;
+  nickname?: string;
+  avatar?: string;
+  follower_count?: number;
 }
 
 interface SocialLinksManagerProps {
@@ -62,90 +86,54 @@ const SOCIAL_PLATFORMS = [
     label: "Instagram",
     placeholder: "@username",
     urlTemplate: "https://instagram.com/{username}",
-    supportsAnalytics: true,
-    icon: "📷",
+    icon: Instagram,
     color: "#E4405F",
+    darkColor: "#E4405F",
   },
   {
     value: "tiktok",
     label: "TikTok",
     placeholder: "@username",
     urlTemplate: "https://tiktok.com/@{username}",
-    supportsAnalytics: true,
-    icon: "🎵",
+    icon: Music,
     color: "#000000",
-  },
-  {
-    value: "youtube",
-    label: "YouTube",
-    placeholder: "@channel",
-    urlTemplate: "https://youtube.com/@{username}",
-    supportsAnalytics: false,
-    icon: "📺",
-    color: "#FF0000",
-  },
-  {
-    value: "twitter",
-    label: "Twitter/X",
-    placeholder: "@username",
-    urlTemplate: "https://twitter.com/{username}",
-    supportsAnalytics: false,
-    icon: "🐦",
-    color: "#1DA1F2",
+    darkColor: "#FFFFFF",
   },
   {
     value: "facebook",
     label: "Facebook",
     placeholder: "username",
     urlTemplate: "https://facebook.com/{username}",
-    supportsAnalytics: false,
-    icon: "📘",
+    icon: Facebook,
     color: "#1877F2",
+    darkColor: "#1877F2",
   },
   {
-    value: "linkedin",
-    label: "LinkedIn",
-    placeholder: "username",
-    urlTemplate: "https://linkedin.com/in/{username}",
-    supportsAnalytics: false,
-    icon: "💼",
-    color: "#0077B5",
-  },
-  {
-    value: "github",
-    label: "GitHub",
+    value: "twitter",
+    label: "Twitter/X",
     placeholder: "@username",
-    urlTemplate: "https://github.com/{username}",
-    supportsAnalytics: false,
-    icon: "💻",
-    color: "#333333",
+    urlTemplate: "https://twitter.com/{username}",
+    icon: Twitter,
+    color: "#1DA1F2",
+    darkColor: "#1DA1F2",
   },
   {
-    value: "twitch",
-    label: "Twitch",
-    placeholder: "@username",
-    urlTemplate: "https://twitch.tv/{username}",
-    supportsAnalytics: false,
-    icon: "🎮",
-    color: "#9146FF",
+    value: "youtube",
+    label: "YouTube",
+    placeholder: "@channel",
+    urlTemplate: "https://youtube.com/@{username}",
+    icon: Youtube,
+    color: "#FF0000",
+    darkColor: "#FF0000",
   },
   {
-    value: "spotify",
-    label: "Spotify",
-    placeholder: "artist-name",
-    urlTemplate: "https://open.spotify.com/artist/{username}",
-    supportsAnalytics: false,
-    icon: "🎧",
-    color: "#1DB954",
-  },
-  {
-    value: "website",
-    label: "Website",
-    placeholder: "website.com",
-    urlTemplate: "https://{username}",
-    supportsAnalytics: false,
-    icon: "🌐",
-    color: "#6B7280",
+    value: "discord",
+    label: "Discord",
+    placeholder: "username#1234",
+    urlTemplate: "https://discord.com/users/{username}",
+    icon: MessageSquare,
+    color: "#5865F2",
+    darkColor: "#5865F2",
   },
 ];
 
@@ -154,37 +142,96 @@ export function SocialLinksManager({
   userPlan,
 }: SocialLinksManagerProps) {
   const [socialLinks, setSocialLinks] = useState<SocialLink[]>([]);
+  const [analyticsData, setAnalyticsData] = useState<{
+    instagram?: AnalyticsData;
+    tiktok?: AnalyticsData;
+  }>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [activeTab, setActiveTab] = useState("links");
   const [newLink, setNewLink] = useState({
     platform: "",
     username: "",
   });
+  const [editingLink, setEditingLink] = useState<SocialLink | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
 
-  const supabase = createClientComponentClient();
   const maxLinks =
     userPlan === "pro"
       ? SECURITY.CONTENT_LIMITS.MAX_SOCIAL_LINKS_PRO
       : SECURITY.CONTENT_LIMITS.MAX_SOCIAL_LINKS_BASIC;
 
   useEffect(() => {
-    fetchSocialLinks();
+    fetchData();
   }, []);
 
-  const fetchSocialLinks = async () => {
+  const fetchData = async () => {
     try {
-      const { data, error } = await supabase
-        .from("social_links")
-        .select("*")
-        .eq("user_id", userId)
-        .order("display_order");
+      // Fetch existing social links using API
+      const linksResponse = await fetch("/api/social-links");
+      if (linksResponse.ok) {
+        const linksResult = await linksResponse.json();
+        setSocialLinks(linksResult.data || []);
+      } else {
+        console.error("Links fetch error:", linksResponse.statusText);
+        setError("Terjadi gangguan server saat memuat data");
+        return;
+      }
 
-      if (error) throw error;
-      setSocialLinks(data || []);
+      // Fetch analytics data for Instagram and TikTok (Pro users only)
+      if (userPlan === "pro") {
+        try {
+          const [instagramResponse, tiktokResponse] = await Promise.allSettled([
+            fetch("/api/social-analytics-data?platform=instagram"),
+            fetch("/api/social-analytics-data?platform=tiktok"),
+          ]);
+
+          const analytics: any = {};
+
+          // Handle Instagram data
+          if (
+            instagramResponse.status === "fulfilled" &&
+            instagramResponse.value.ok
+          ) {
+            const instagramResult = await instagramResponse.value.json();
+            if (instagramResult.data) {
+              const data = instagramResult.data;
+              analytics.instagram = {
+                saved_username: data.saved_username,
+                nickname: data.full_name || data.username,
+                avatar: data.profile_pic_url,
+                follower_count: data.follower_count,
+              };
+            }
+          }
+
+          // Handle TikTok data
+          if (
+            tiktokResponse.status === "fulfilled" &&
+            tiktokResponse.value.ok
+          ) {
+            const tiktokResult = await tiktokResponse.value.json();
+            if (tiktokResult.data) {
+              const data = tiktokResult.data;
+              analytics.tiktok = {
+                saved_username: data.saved_username,
+                nickname: data.nickname,
+                avatar: data.avatar,
+                follower_count: data.follower_count,
+              };
+            }
+          }
+
+          setAnalyticsData(analytics);
+        } catch (analyticsError) {
+          console.error("Analytics fetch error:", analyticsError);
+          setAnalyticsData({});
+        }
+      }
     } catch (error: any) {
-      setError(error.message);
+      console.error("Fetch data error:", error);
+      setError("Terjadi gangguan server. Silakan coba lagi nanti.");
     } finally {
       setLoading(false);
     }
@@ -194,14 +241,9 @@ export function SocialLinksManager({
     const platformConfig = SOCIAL_PLATFORMS.find((p) => p.value === platform);
     if (!platformConfig) return "";
 
-    const cleanUsername = username.replace("@", "").replace(/^https?:\/\//, "");
-
-    if (platform === "website") {
-      return cleanUsername.startsWith("http")
-        ? cleanUsername
-        : `https://${cleanUsername}`;
-    }
-
+    const cleanUsername = sanitizeInput(
+      username.replace("@", "").replace(/^https?:\/\//, "")
+    );
     return platformConfig.urlTemplate.replace("{username}", cleanUsername);
   };
 
@@ -211,8 +253,26 @@ export function SocialLinksManager({
       return;
     }
 
-    if (!newLink.username) {
+    if (!newLink.username.trim()) {
       setError("Username wajib diisi");
+      return;
+    }
+
+    const cleanUsername = sanitizeInput(newLink.username.trim());
+    if (!cleanUsername) {
+      setError("Username tidak valid");
+      return;
+    }
+
+    if (
+      userPlan === "pro" &&
+      (newLink.platform === "instagram" || newLink.platform === "tiktok")
+    ) {
+      setError(
+        `Untuk ${
+          newLink.platform === "instagram" ? "Instagram" : "TikTok"
+        }, silakan atur di halaman Social Analytics`
+      );
       return;
     }
 
@@ -225,7 +285,6 @@ export function SocialLinksManager({
       return;
     }
 
-    // Check if platform already exists
     if (socialLinks.some((link) => link.platform === newLink.platform)) {
       setError("Platform ini sudah ditambahkan");
       return;
@@ -235,69 +294,110 @@ export function SocialLinksManager({
     setError("");
 
     try {
-      const generatedURL = generateURL(newLink.platform, newLink.username);
+      const generatedURL = generateURL(newLink.platform, cleanUsername);
 
       if (!validateURL(generatedURL)) {
         setError("URL yang dihasilkan tidak valid");
+        setSaving(false);
         return;
       }
 
-      const { data, error } = await supabase
-        .from("social_links")
-        .insert({
-          user_id: userId,
+      const response = await fetch("/api/social-links", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
           platform: newLink.platform,
-          username: sanitizeInput(newLink.username.replace("@", "")),
+          username: cleanUsername.replace("@", ""),
           url: generatedURL,
-          followers_count: 0,
           display_order: socialLinks.length,
-        })
-        .select()
-        .single();
+        }),
+      });
 
-      if (error) throw error;
-
-      setSocialLinks([...socialLinks, data]);
-      setNewLink({ platform: "", username: "" });
+      if (response.ok) {
+        const result = await response.json();
+        setSocialLinks([...socialLinks, result.data]);
+        setNewLink({ platform: "", username: "" });
+      } else {
+        setError("Gagal menambahkan link. Silakan coba lagi.");
+      }
     } catch (error: any) {
-      setError(error.message);
+      console.error("Add link error:", error);
+      setError("Terjadi gangguan server. Silakan coba lagi.");
     } finally {
       setSaving(false);
     }
   };
 
-  const updateFollowerCount = async (linkId: string, count: number) => {
+  const updateSocialLink = async () => {
+    if (!editingLink) return;
+
+    const cleanUsername = sanitizeInput(editingLink.username.trim());
+    if (!cleanUsername) {
+      setError("Username tidak valid");
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+
     try {
-      const { error } = await supabase
-        .from("social_links")
-        .update({ followers_count: count })
-        .eq("id", linkId);
+      const generatedURL = generateURL(editingLink.platform, cleanUsername);
 
-      if (error) throw error;
+      if (!validateURL(generatedURL)) {
+        setError("URL yang dihasilkan tidak valid");
+        setSaving(false);
+        return;
+      }
 
-      setSocialLinks((links) =>
-        links.map((link) =>
-          link.id === linkId ? { ...link, followers_count: count } : link
-        )
-      );
+      const response = await fetch("/api/social-links", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: editingLink.id,
+          username: cleanUsername.replace("@", ""),
+          url: generatedURL,
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setSocialLinks((links) =>
+          links.map((link) => (link.id === editingLink.id ? result.data : link))
+        );
+        setShowEditDialog(false);
+        setEditingLink(null);
+      } else {
+        setError("Gagal memperbarui link. Silakan coba lagi.");
+      }
     } catch (error: any) {
-      setError(error.message);
+      console.error("Update link error:", error);
+      setError("Terjadi gangguan server. Silakan coba lagi.");
+    } finally {
+      setSaving(false);
     }
   };
 
   const deleteSocialLink = async (id: string) => {
     setSaving(true);
+    setError("");
+
     try {
-      const { error } = await supabase
-        .from("social_links")
-        .delete()
-        .eq("id", id);
+      const response = await fetch(`/api/social-links?id=${id}`, {
+        method: "DELETE",
+      });
 
-      if (error) throw error;
-
-      setSocialLinks(socialLinks.filter((link) => link.id !== id));
+      if (response.ok) {
+        setSocialLinks(socialLinks.filter((link) => link.id !== id));
+      } else {
+        setError("Gagal menghapus link. Silakan coba lagi.");
+      }
     } catch (error: any) {
-      setError(error.message);
+      console.error("Delete link error:", error);
+      setError("Terjadi gangguan server. Silakan coba lagi.");
     } finally {
       setSaving(false);
     }
@@ -305,44 +405,48 @@ export function SocialLinksManager({
 
   const getPlatformDisplay = (link: SocialLink) => {
     const platform = SOCIAL_PLATFORMS.find((p) => p.value === link.platform);
-    const IconComponent = getPlatformIcon(link.platform);
+    const IconComponent = platform?.icon || ExternalLink;
 
     return {
       name: platform?.label || link.platform,
       IconComponent,
-      color: platform?.color || getPlatformColor(link.platform),
-      supportsAnalytics: platform?.supportsAnalytics || false,
+      color: platform?.color || "#6B7280",
+      darkColor: platform?.darkColor || platform?.color || "#6B7280",
     };
   };
 
-  const formatFollowerCount = (count: number): string => {
-    if (count >= 1000000) {
-      return `${(count / 1000000).toFixed(1)}M`;
-    }
-    if (count >= 1000) {
-      return `${(count / 1000).toFixed(1)}K`;
-    }
+  const formatFollowerCount = (count: number | undefined): string => {
+    if (!count || count === 0) return "0";
+    if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
+    if (count >= 1000) return `${(count / 1000).toFixed(1)}K`;
     return count.toLocaleString();
   };
 
-  const instagramLink = socialLinks.find(
-    (link) => link.platform === "instagram"
-  );
-  const tiktokLink = socialLinks.find((link) => link.platform === "tiktok");
+  const availablePlatforms = SOCIAL_PLATFORMS.filter((platform) => {
+    if (
+      userPlan === "pro" &&
+      (platform.value === "instagram" || platform.value === "tiktok")
+    ) {
+      return false;
+    }
+    return true;
+  });
 
   if (loading) {
     return (
-      <div className="space-y-4">
-        {[...Array(3)].map((_, i) => (
-          <Card key={i}>
-            <CardContent className="p-6">
-              <div className="animate-pulse space-y-3">
-                <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-                <div className="h-10 bg-gray-200 rounded"></div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="w-full max-w-none px-4 sm:px-6 lg:px-8">
+        <div className="space-y-4">
+          {[...Array(3)].map((_, i) => (
+            <Card key={i}>
+              <CardContent className="p-6">
+                <div className="animate-pulse space-y-3">
+                  <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+                  <div className="h-10 bg-gray-200 rounded"></div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     );
   }
@@ -350,436 +454,564 @@ export function SocialLinksManager({
   const selectedPlatform = SOCIAL_PLATFORMS.find(
     (p) => p.value === newLink.platform
   );
+  const totalLinks =
+    socialLinks.length +
+    (analyticsData.instagram ? 1 : 0) +
+    (analyticsData.tiktok ? 1 : 0);
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-center mb-4">
-        <Button variant="outline" asChild>
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <ArrowLeft className="w-4 h-4" />
-            Kembali ke Dashboard
-          </Link>
-        </Button>
-      </div>
+    <div className="w-full max-w-none px-4 sm:px-6 lg:px-8">
+      <div className="space-y-6">
+        {/* Back Button */}
+        <div className="flex justify-center">
+          <Button
+            variant="outline"
+            asChild
+            className="border-purple-200 hover:bg-purple-50 hover:border-purple-300 transition-all duration-300"
+          >
+            <Link href="/dashboard" className="flex items-center gap-2">
+              <ArrowLeft className="w-4 h-4" />
+              Kembali ke Dashboard
+            </Link>
+          </Button>
+        </div>
 
-      {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
-      <Tabs
-        value={activeTab}
-        onValueChange={setActiveTab}
-        className="space-y-6"
-      >
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="links">Social Links</TabsTrigger>
-          <TabsTrigger value="instagram" disabled={!instagramLink}>
-            Instagram Analytics {!instagramLink && "(Add Instagram first)"}
-          </TabsTrigger>
-          <TabsTrigger value="tiktok" disabled={!tiktokLink}>
-            TikTok Analytics {!tiktokLink && "(Add TikTok first)"}
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="links" className="space-y-6">
-          {/* Plan Limit Info */}
-          <Alert>
-            <Crown className="h-4 w-4" />
-            <AlertDescription>
-              <div className="flex items-center justify-between">
-                <span>
-                  Paket {userPlan === "pro" ? "Pro" : "Basic"}:{" "}
-                  {socialLinks.length}/{maxLinks === -1 ? "∞" : maxLinks} social
-                  links
-                </span>
-                {userPlan === "basic" && (
-                  <Button size="sm" variant="outline" asChild>
-                    <Link href="/plan-selection">Upgrade ke Pro</Link>
-                  </Button>
-                )}
-              </div>
-            </AlertDescription>
-          </Alert>
-
-          {/* Analytics Info */}
-          <Alert>
-            <AlertDescription>
-              <div className="space-y-2">
-                <p className="font-medium">📊 Analytics Available:</p>
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="default" className="bg-pink-500">
-                    📷 Instagram - Full Analytics
-                  </Badge>
-                  <Badge variant="default" className="bg-black text-white">
-                    🎵 TikTok - Full Analytics
-                  </Badge>
-                  <Badge variant="secondary">🎬 YouTube - Manual Input</Badge>
-                  <Badge variant="secondary">🐦 Twitter - Manual Input</Badge>
-                  <Badge variant="secondary">📘 Facebook - Manual Input</Badge>
+        {/* Header */}
+        <div className="text-center space-y-4">
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-800 p-8 text-white">
+            <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/10 to-transparent"></div>
+            <div className="relative z-10">
+              <div className="flex items-center justify-center gap-3 mb-4">
+                <div className="p-3 bg-white/20 rounded-full backdrop-blur-sm">
+                  <ExternalLink className="w-8 h-8 text-yellow-300" />
                 </div>
-                <p className="text-xs text-gray-600">
-                  Instagram menggunakan TrendHero API. TikTok menggunakan
-                  FastMoss API. Platform lain manual input.
-                </p>
+                <h1 className="text-3xl font-bold">Social Links</h1>
               </div>
-            </AlertDescription>
-          </Alert>
+              <p className="text-purple-100 max-w-2xl mx-auto">
+                Kelola semua social media links Anda dalam satu tempat
+              </p>
+            </div>
+          </div>
+        </div>
 
-          {/* Add New Link */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Tambah Social Link Baru</CardTitle>
-              <CardDescription>
-                Pilih platform dan masukkan username Anda
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="platform">Platform *</Label>
-                  <Select
-                    value={newLink.platform}
-                    onValueChange={(value) =>
-                      setNewLink({ ...newLink, platform: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Pilih platform" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SOCIAL_PLATFORMS.map((platform) => (
-                        <SelectItem key={platform.value} value={platform.value}>
-                          <div className="flex items-center gap-2">
-                            <span>{platform.icon}</span>
-                            <span>{platform.label}</span>
-                            {platform.supportsAnalytics && (
-                              <Badge variant="secondary" className="text-xs">
-                                Analytics
-                              </Badge>
-                            )}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="username">Username *</Label>
-                  <Input
-                    id="username"
-                    placeholder={selectedPlatform?.placeholder || "@username"}
-                    value={newLink.username}
-                    onChange={(e) =>
-                      setNewLink({ ...newLink, username: e.target.value })
-                    }
-                    required
-                  />
-                  {selectedPlatform && newLink.username && (
-                    <p className="text-xs text-gray-500">
-                      URL: {generateURL(newLink.platform, newLink.username)}
-                    </p>
+        {/* Info Collapsible */}
+        <Collapsible open={showInfo} onOpenChange={setShowInfo}>
+          <Card className="border-blue-200 bg-blue-50/50 dark:bg-blue-900/20 dark:border-blue-800">
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-blue-100/50 dark:hover:bg-blue-900/30 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Info className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    <CardTitle className="text-blue-900 dark:text-blue-100">
+                      Informasi & Cara Penggunaan
+                    </CardTitle>
+                  </div>
+                  {showInfo ? (
+                    <ChevronUp className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                   )}
                 </div>
-              </div>
-
-              <Button
-                onClick={addSocialLink}
-                disabled={
-                  saving ||
-                  !newLink.platform ||
-                  !newLink.username ||
-                  (maxLinks !== -1 && socialLinks.length >= maxLinks)
-                }
-                className="w-full"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Tambah Social Link
-              </Button>
-            </CardContent>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="pt-0 space-y-4">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-blue-900 dark:text-blue-100">
+                      📋 Cara Penggunaan:
+                    </h4>
+                    <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+                      <li>• Pilih platform social media</li>
+                      <li>• Masukkan username Anda</li>
+                      <li>• Link akan otomatis terbuat</li>
+                      <li>• Klik ikon untuk edit atau hapus</li>
+                    </ul>
+                  </div>
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-blue-900 dark:text-blue-100">
+                      ⭐ Fitur Khusus Pro:
+                    </h4>
+                    <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+                      <li>• Instagram & TikTok dengan Analytics</li>
+                      <li>• Data follower real-time</li>
+                      <li>• Unlimited social links</li>
+                      <li>• Insights mendalam</li>
+                    </ul>
+                  </div>
+                </div>
+                {userPlan === "basic" && (
+                  <Alert className="border-yellow-200 bg-yellow-50 dark:bg-yellow-900/20">
+                    <Crown className="w-4 h-4 text-yellow-600" />
+                    <AlertDescription className="text-yellow-800 dark:text-yellow-200">
+                      <strong>Upgrade ke Pro</strong> untuk mendapatkan
+                      analytics Instagram & TikTok dengan data follower
+                      real-time!
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </CardContent>
+            </CollapsibleContent>
           </Card>
+        </Collapsible>
 
-          {/* Existing Links */}
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {/* Plan Info */}
+        <Alert className="border-purple-200 bg-gradient-to-r from-purple-50 to-yellow-50 dark:from-purple-900/20 dark:to-yellow-900/20">
+          <Crown className="h-4 w-4 text-purple-600" />
+          <AlertDescription>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <span className="text-purple-900 dark:text-purple-100">
+                <strong>Paket {userPlan === "pro" ? "Pro" : "Basic"}:</strong>{" "}
+                {totalLinks}/{maxLinks === -1 ? "∞" : maxLinks} social links
+              </span>
+              {userPlan === "basic" && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  asChild
+                  className="border-purple-300 hover:bg-purple-100"
+                >
+                  <Link href="/plan-selection">
+                    <Sparkles className="w-4 h-4 mr-1" />
+                    Upgrade ke Pro
+                  </Link>
+                </Button>
+              )}
+            </div>
+          </AlertDescription>
+        </Alert>
+
+        {/* Analytics Links for Pro Users */}
+        {userPlan === "pro" && (
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold">
-              Social Links Anda ({socialLinks.length})
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Social Analytics Links
+              </h3>
+              <Button
+                size="sm"
+                asChild
+                className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+              >
+                <Link href="/dashboard/social/analytics">
+                  <BarChart3 className="w-4 h-4 mr-2" />
+                  Kelola Analytics
+                </Link>
+              </Button>
+            </div>
 
-            {socialLinks.length === 0 ? (
-              <Card>
-                <CardContent className="p-12 text-center">
-                  <p className="text-gray-500">
-                    Belum ada social links. Tambahkan yang pertama!
+            {!analyticsData.instagram && !analyticsData.tiktok ? (
+              <Card className="border-dashed border-2 border-purple-300 bg-purple-50/50 dark:bg-purple-900/20">
+                <CardContent className="p-8 text-center">
+                  <TrendingUp className="w-12 h-12 text-purple-400 mx-auto mb-4" />
+                  <h4 className="text-lg font-semibold text-purple-900 dark:text-purple-100 mb-2">
+                    Belum Ada Analytics Data
+                  </h4>
+                  <p className="text-purple-700 dark:text-purple-300 mb-4">
+                    Tambahkan username Instagram atau TikTok di halaman Social
+                    Analytics untuk mendapatkan link otomatis dengan data
+                    real-time
                   </p>
+                  <Button
+                    asChild
+                    className="bg-gradient-to-r from-purple-600 to-indigo-600"
+                  >
+                    <Link href="/dashboard/social/analytics">
+                      <BarChart3 className="w-4 h-4 mr-2" />
+                      Setup Analytics Sekarang
+                    </Link>
+                  </Button>
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid grid-cols-1 gap-4">
-                {socialLinks.map((link) => {
-                  const platformDisplay = getPlatformDisplay(link);
-                  const IconComponent = platformDisplay.IconComponent;
-
-                  return (
-                    <Card key={link.id}>
-                      <CardContent className="p-4 sm:p-6">
-                        <div className="flex flex-col gap-4">
-                          {/* Header */}
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div
-                                className="w-10 h-10 rounded-full flex items-center justify-center text-white"
-                                style={{
-                                  backgroundColor: platformDisplay.color,
-                                }}
-                              >
-                                <IconComponent className="w-5 h-5" />
-                              </div>
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <Badge
-                                    variant="secondary"
-                                    className="text-xs"
-                                  >
-                                    {platformDisplay.name}
-                                  </Badge>
-                                  {platformDisplay.supportsAnalytics && (
-                                    <Badge
-                                      variant="default"
-                                      className="text-xs"
-                                    >
-                                      Analytics
-                                    </Badge>
-                                  )}
-                                  {link.is_verified && (
-                                    <Badge
-                                      variant="default"
-                                      className="text-xs bg-blue-500"
-                                    >
-                                      Verified
-                                    </Badge>
-                                  )}
-                                </div>
-                                <div className="text-sm text-gray-600 dark:text-gray-400">
-                                  <div className="font-medium">
-                                    @{link.username}
-                                  </div>
-                                  <div className="text-xs text-blue-600 dark:text-blue-400 truncate">
-                                    {link.url}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                              {platformDisplay.supportsAnalytics && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => setActiveTab(link.platform)}
-                                >
-                                  <BarChart3 className="w-4 h-4" />
-                                </Button>
-                              )}
-                              <Button variant="outline" size="sm" asChild>
-                                <a
-                                  href={link.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  <ExternalLink className="w-4 h-4" />
-                                </a>
-                              </Button>
-                              <ConfirmationDialog
-                                title="Hapus Social Link"
-                                description={`Apakah Anda yakin ingin menghapus ${platformDisplay.name} (@${link.username})? Tindakan ini tidak dapat dibatalkan.`}
-                                onConfirm={() => deleteSocialLink(link.id)}
-                              >
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  disabled={saving}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </ConfirmationDialog>
+              <div className="grid gap-4">
+                {/* Instagram Analytics Link */}
+                {analyticsData.instagram && (
+                  <Card className="border-pink-200 bg-gradient-to-r from-pink-50 to-purple-50 dark:from-pink-900/20 dark:to-purple-900/20">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="relative flex-shrink-0">
+                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center">
+                              <Instagram className="w-6 h-6 text-white" />
                             </div>
                           </div>
-
-                          {/* Stats Section */}
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <div className="space-y-1">
-                              <Label className="text-xs">Followers</Label>
-                              {platformDisplay.supportsAnalytics ? (
-                                <div className="h-8 flex items-center text-sm font-medium bg-gray-50 px-3 rounded border">
-                                  {formatFollowerCount(link.followers_count)}
-                                  <Badge
-                                    variant="secondary"
-                                    className="ml-2 text-xs"
-                                  >
-                                    Auto
-                                  </Badge>
-                                </div>
-                              ) : (
-                                <Input
-                                  type="number"
-                                  placeholder="0"
-                                  value={link.followers_count || ""}
-                                  onChange={(e) =>
-                                    updateFollowerCount(
-                                      link.id,
-                                      Number.parseInt(e.target.value) || 0
-                                    )
-                                  }
-                                  className="h-8"
-                                />
-                              )}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge
+                                variant="secondary"
+                                className="bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-100 text-xs"
+                              >
+                                Instagram Analytics
+                              </Badge>
                             </div>
-
-                            {link.following_count > 0 && (
-                              <div className="space-y-1">
-                                <Label className="text-xs">Following</Label>
-                                <div className="h-8 flex items-center text-sm font-medium bg-gray-50 px-3 rounded border">
-                                  {formatFollowerCount(link.following_count)}
-                                </div>
+                            <div className="text-sm text-gray-600 dark:text-gray-400">
+                              <div className="font-medium truncate">
+                                @{analyticsData.instagram.saved_username}
                               </div>
-                            )}
-
-                            {link.media_count > 0 && (
-                              <div className="space-y-1">
-                                <Label className="text-xs">Posts</Label>
-                                <div className="h-8 flex items-center text-sm font-medium bg-gray-50 px-3 rounded border">
-                                  {formatFollowerCount(link.media_count)}
-                                </div>
-                              </div>
-                            )}
-
-                            {link.engagement_rate > 0 && (
-                              <div className="space-y-1">
-                                <Label className="text-xs">Engagement</Label>
-                                <div className="h-8 flex items-center text-sm font-medium bg-gray-50 px-3 rounded border">
-                                  {(link.engagement_rate * 100).toFixed(2)}%
-                                </div>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Display Stats */}
-                          {link.followers_count > 0 && (
-                            <div className="text-sm text-gray-600">
-                              <div className="font-medium">
-                                {formatFollowerCount(link.followers_count)}{" "}
+                              <div className="text-xs text-pink-600 dark:text-pink-400 truncate">
+                                {analyticsData.instagram.nickname && (
+                                  <span>
+                                    {analyticsData.instagram.nickname} •{" "}
+                                  </span>
+                                )}
+                                {formatFollowerCount(
+                                  analyticsData.instagram.follower_count
+                                )}{" "}
                                 followers
                               </div>
-                              <div className="text-xs text-gray-500">
-                                Updated:{" "}
-                                {new Date(link.updated_at).toLocaleString(
-                                  "id-ID",
-                                  {
-                                    weekday: "long",
-                                    year: "numeric",
-                                    month: "long",
-                                    day: "numeric",
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                    second: "2-digit",
-                                  }
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <Button variant="outline" size="sm" asChild>
+                            <Link href="/dashboard/social/analytics">
+                              <BarChart3 className="w-4 h-4" />
+                            </Link>
+                          </Button>
+                          <Button variant="outline" size="sm" asChild>
+                            <a
+                              href={`https://instagram.com/${analyticsData.instagram.saved_username}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                            </a>
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* TikTok Analytics Link */}
+                {analyticsData.tiktok && (
+                  <Card className="border-gray-200 bg-gradient-to-r from-gray-50 to-purple-50 dark:from-gray-900/50 dark:to-purple-900/20">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="relative flex-shrink-0">
+                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-800 to-gray-600 dark:from-white dark:to-gray-200 flex items-center justify-center">
+                              <Music className="w-6 h-6 text-white dark:text-gray-800" />
+                            </div>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge
+                                variant="secondary"
+                                className="bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100 text-xs"
+                              >
+                                TikTok Analytics
+                              </Badge>
+                            </div>
+                            <div className="text-sm text-gray-600 dark:text-gray-400">
+                              <div className="font-medium truncate">
+                                @{analyticsData.tiktok.saved_username}
+                              </div>
+                              <div className="text-xs text-gray-600 dark:text-gray-400 truncate">
+                                {analyticsData.tiktok.nickname && (
+                                  <span>
+                                    {analyticsData.tiktok.nickname} •{" "}
+                                  </span>
                                 )}
+                                {formatFollowerCount(
+                                  analyticsData.tiktok.follower_count
+                                )}{" "}
+                                followers
                               </div>
                             </div>
-                          )}
+                          </div>
                         </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
+
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <Button variant="outline" size="sm" asChild>
+                            <Link href="/dashboard/social/analytics">
+                              <BarChart3 className="w-4 h-4" />
+                            </Link>
+                          </Button>
+                          <Button variant="outline" size="sm" asChild>
+                            <a
+                              href={`https://tiktok.com/@${analyticsData.tiktok.saved_username}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                            </a>
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
             )}
           </div>
-        </TabsContent>
+        )}
 
-        <TabsContent value="instagram" className="space-y-6">
-          {instagramLink ? (
-            <InstagramAnalyticsCard
-              username={instagramLink.username}
-              socialLinkId={instagramLink.id}
-              onAnalyticsUpdate={(analytics) => {
-                // Update social link with analytics data
-                setSocialLinks((links) =>
-                  links.map((link) =>
-                    link.id === instagramLink.id
-                      ? {
-                          ...link,
-                          followers_count: analytics.userInfo.follower_count,
-                          following_count: analytics.userInfo.following_count,
-                          media_count: analytics.userInfo.media_count,
-                          engagement_rate: analytics.engagementRate,
-                          is_verified: analytics.userInfo.is_verified,
-                        }
-                      : link
-                  )
-                );
-              }}
-            />
-          ) : (
+        {/* Add New Link */}
+        <Card className="border-purple-200 shadow-lg">
+          <CardHeader className="bg-gradient-to-r from-purple-50 to-yellow-50 dark:from-purple-900/20 dark:to-yellow-900/20">
+            <CardTitle className="flex items-center gap-2 text-purple-900 dark:text-purple-100">
+              <Plus className="w-5 h-5" />
+              Tambah Social Link Baru
+            </CardTitle>
+            <CardDescription className="text-purple-700 dark:text-purple-300">
+              {userPlan === "pro"
+                ? "Tambahkan platform social media lainnya (Instagram & TikTok dikelola di Analytics)"
+                : "Pilih platform dan masukkan username Anda"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="platform">Platform *</Label>
+                <Select
+                  value={newLink.platform}
+                  onValueChange={(value) =>
+                    setNewLink({ ...newLink, platform: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Pilih platform" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availablePlatforms.map((platform) => {
+                      const IconComponent = platform.icon;
+                      return (
+                        <SelectItem key={platform.value} value={platform.value}>
+                          <div className="flex items-center gap-2">
+                            <IconComponent
+                              className="w-4 h-4"
+                              style={{
+                                color:
+                                  platform.value === "tiktok"
+                                    ? "var(--foreground)"
+                                    : platform.color,
+                              }}
+                            />
+                            <span>{platform.label}</span>
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="username">Username *</Label>
+                <Input
+                  id="username"
+                  placeholder={selectedPlatform?.placeholder || "@username"}
+                  value={newLink.username}
+                  onChange={(e) =>
+                    setNewLink({ ...newLink, username: e.target.value })
+                  }
+                  required
+                  maxLength={50}
+                />
+              </div>
+            </div>
+
+            <Button
+              onClick={addSocialLink}
+              disabled={
+                saving ||
+                !newLink.platform ||
+                !newLink.username ||
+                (maxLinks !== -1 && totalLinks >= maxLinks)
+              }
+              className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              {saving ? "Menambahkan..." : "Tambah Social Link"}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Existing Links */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            Social Links Lainnya ({socialLinks.length})
+          </h3>
+
+          {socialLinks.length === 0 ? (
             <Card>
               <CardContent className="p-12 text-center">
-                <BarChart3 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">
-                  Instagram Analytics
-                </h3>
-                <p className="text-gray-600 mb-4">
-                  Tambahkan akun Instagram terlebih dahulu untuk melihat
-                  analytics
+                <ExternalLink className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500">
+                  Belum ada social links lainnya. Tambahkan yang pertama!
                 </p>
-                <Button onClick={() => setActiveTab("links")}>
-                  Tambah Instagram
-                </Button>
               </CardContent>
             </Card>
-          )}
-        </TabsContent>
-
-        <TabsContent value="tiktok" className="space-y-6">
-          {tiktokLink ? (
-            <TikTokAnalyticsCard
-              username={tiktokLink.username}
-              socialLinkId={tiktokLink.id}
-              onAnalyticsUpdate={(analytics) => {
-                // Update social link with analytics data
-                setSocialLinks((links) =>
-                  links.map((link) =>
-                    link.id === tiktokLink.id
-                      ? {
-                          ...link,
-                          followers_count: analytics.userInfo.follower_count,
-                          following_count: 0, // TikTok doesn't provide following count
-                          media_count: analytics.analytics.aweme_28_count,
-                          engagement_rate: analytics.analytics.flow_index / 100,
-                          is_verified: analytics.userInfo.verify_type === "1",
-                        }
-                      : link
-                  )
-                );
-              }}
-            />
           ) : (
-            <Card>
-              <CardContent className="p-12 text-center">
-                <BarChart3 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">TikTok Analytics</h3>
-                <p className="text-gray-600 mb-4">
-                  Tambahkan akun TikTok terlebih dahulu untuk melihat analytics
-                </p>
-                <Button onClick={() => setActiveTab("links")}>
-                  Tambah TikTok
-                </Button>
-              </CardContent>
-            </Card>
+            <div className="grid gap-4">
+              {socialLinks.map((link) => {
+                const platformDisplay = getPlatformDisplay(link);
+                const IconComponent = platformDisplay.IconComponent;
+
+                return (
+                  <Card
+                    key={link.id}
+                    className="hover:shadow-md transition-shadow"
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div
+                            className="w-10 h-10 rounded-full flex items-center justify-center text-white flex-shrink-0"
+                            style={{
+                              backgroundColor: platformDisplay.color,
+                            }}
+                          >
+                            <IconComponent
+                              className="w-5 h-5"
+                              style={{
+                                color:
+                                  link.platform === "tiktok"
+                                    ? platformDisplay.darkColor
+                                    : "white",
+                              }}
+                            />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge variant="secondary" className="text-xs">
+                                {platformDisplay.name}
+                              </Badge>
+                            </div>
+                            <div className="text-sm text-gray-600 dark:text-gray-400">
+                              <div className="font-medium truncate">
+                                @{link.username}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <Button variant="outline" size="sm" asChild>
+                            <a
+                              href={link.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Buka Link"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                            </a>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setEditingLink(link);
+                              setShowEditDialog(true);
+                            }}
+                            title="Edit"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <ConfirmationDialog
+                            title="Konfirmasi Hapus Username"
+                            description={`Apakah Anda yakin ingin menghapus ${platformDisplay.name} (@${link.username})? Anda dapat menambahkan username baru setelah menghapus yang ini.`}
+                            onConfirm={() => deleteSocialLink(link.id)}
+                          >
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={saving}
+                              title="Hapus"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </ConfirmationDialog>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
           )}
-        </TabsContent>
-      </Tabs>
+        </div>
+
+        {/* Edit Dialog */}
+        <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+          <DialogContent className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg mx-4 sm:mx-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Social Link</DialogTitle>
+              <DialogDescription>
+                Update username untuk platform ini
+              </DialogDescription>
+            </DialogHeader>
+            {editingLink && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Platform</Label>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-white"
+                      style={{
+                        backgroundColor: getPlatformDisplay(editingLink).color,
+                      }}
+                    >
+                      {React.createElement(
+                        getPlatformDisplay(editingLink).IconComponent,
+                        {
+                          className: "w-4 h-4",
+                          style: {
+                            color:
+                              editingLink.platform === "tiktok"
+                                ? getPlatformDisplay(editingLink).darkColor
+                                : "white",
+                          },
+                        }
+                      )}
+                    </div>
+                    <span>{getPlatformDisplay(editingLink).name}</span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-username">Username</Label>
+                  <Input
+                    id="edit-username"
+                    value={editingLink.username}
+                    onChange={(e) =>
+                      setEditingLink({
+                        ...editingLink,
+                        username: e.target.value,
+                      })
+                    }
+                    maxLength={50}
+                  />
+                </div>
+              </div>
+            )}
+            <DialogFooter className="flex flex-col gap-2 sm:flex-col">
+              <Button
+                onClick={updateSocialLink}
+                disabled={saving}
+                className="w-full order-1"
+              >
+                {saving ? "Menyimpan..." : "Simpan"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowEditDialog(false)}
+                className="w-full order-2"
+              >
+                Batal
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   );
 }
